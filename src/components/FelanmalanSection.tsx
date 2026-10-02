@@ -3,6 +3,9 @@ import {
   Car,
   Cat,
   CircleCheck,
+  KeyRound,
+  Lock,
+  LogIn,
   Droplets,
   Phone,
   Send,
@@ -16,11 +19,15 @@ import {
 import { useId, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { addTicket, hasActiveStay, type Ticket, type TicketPriority } from "@/lib/hotel";
+import { getHotel, saveHotel, useHotel } from "@/lib/hotel-store";
 import { cn } from "@/lib/utils";
 
-// Felanmälan sparas bara i komponentens state tills det finns en riktig backend.
+// Felanmälan sparas i hotellets lokala lagring så att receptionsvyn kan följa upp den.
+// Ingen databas än: allt stannar i den här webbläsaren.
+// Bara inloggade gäster kan felanmäla. Rummet kommer från bokningen, så ingen kan anmäla åt ett annat rum.
 
-type Priority = "later" | "today" | "asap";
+type Priority = TicketPriority;
 
 const priorities: { value: Priority; label: string }[] = [
   { value: "later", label: "Kan vänta till i morgon" },
@@ -41,6 +48,7 @@ const categories: Category[] = [
       ["Stopp i avlopp eller toalett", "today"],
       ["Läckage eller droppande kran", "asap"],
       ["Dålig ventilation eller kondens", "later"],
+      ["Kjell har lagt sig på elementet och vägrar flytta", "later"],
     ],
   },
   {
@@ -52,6 +60,7 @@ const categories: Category[] = [
       ["TV eller streaming krånglar", "later"],
       ["Nyckelkortet öppnar inte dörren", "asap"],
       ["Lampa eller eluttag fungerar inte", "today"],
+      ["Kjell har bytt wifi-lösenordet igen", "today"],
     ],
   },
   {
@@ -63,6 +72,7 @@ const categories: Category[] = [
       ["Min bokning syns inte", "today"],
       ["Bastun är upptagen trots min bokning", "asap"],
       ["Slut på handdukar eller bastuskopa", "later"],
+      ["Kjell har bokat bastun åt sig själv", "today"],
     ],
   },
   {
@@ -73,6 +83,7 @@ const categories: Category[] = [
       ["Pjäxtorken går inte", "today"],
       ["Låsskåpet har låst sig", "asap"],
       ["Min utrustning saknas", "asap"],
+      ["Kjell sover i min pjäxa", "later"],
     ],
   },
   {
@@ -84,6 +95,7 @@ const categories: Category[] = [
       ["Extra filt eller kudde", "later"],
       ["Städningen blev missad", "today"],
       ["Kaffe eller te är slut", "later"],
+      ["Kjell har bäddat sängen – med sig själv i", "later"],
     ],
   },
   {
@@ -94,6 +106,7 @@ const categories: Category[] = [
       ["Motorvärmaruttaget ger ingen ström", "asap"],
       ["Platsen behöver snöröjas", "today"],
       ["Laddstolpen fungerar inte", "today"],
+      ["Kjell sitter på motorhuven och tittar dömande", "later"],
     ],
   },
   {
@@ -104,6 +117,7 @@ const categories: Category[] = [
       ["Oväsen från grannrum", "asap"],
       ["Brandvarnaren piper (batteri)", "asap"],
       ["Konstig lukt", "asap"],
+      ["Kjell spinner för högt utanför dörren", "later"],
     ],
   },
   {
@@ -114,34 +128,24 @@ const categories: Category[] = [
       ["Kjell har tagit sig in på rummet", "later"],
       ["Kjell sover på min skidjacka", "later"],
       ["Allergi – Kjell behöver hållas borta", "asap"],
+      ["Kjell har höjt priserna i minibaren igen", "today"],
     ],
   },
 ];
 
-type Ticket = {
-  id: string;
-  room: string;
-  fault: string;
-  category: string;
-  priority: Priority;
-  phone: string;
-  description: string;
-  mayEnter: boolean;
-};
-
 const priorityLabel = (priority: Priority) => priorities.find((p) => p.value === priority)!.label;
 
-export function FelanmalanSection() {
+export function FelanmalanSection({ onLogin }: { onLogin: () => void }) {
   const ids = useId();
+  const { active } = useHotel();
+  const stay = hasActiveStay(active) ? active : undefined;
   const [showPhone, setShowPhone] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [fault, setFault] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("today");
-  const [room, setRoom] = useState("");
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [mayEnter, setMayEnter] = useState(true);
-  const [error, setError] = useState("");
   const [ticket, setTicket] = useState<Ticket | null>(null);
 
   const category = categories.find((c) => c.id === categoryId);
@@ -160,28 +164,31 @@ export function FelanmalanSection() {
     setCategoryId(null);
     setFault(null);
     setPriority("today");
-    setRoom("");
     setPhone("");
     setDescription("");
     setMayEnter(true);
-    setError("");
     setTicket(null);
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!category || !fault) return;
-    if (!room.trim()) return setError("Skriv ditt rumsnummer så vi vet vart vi ska gå.");
-    setTicket({
-      id: `HJ-${String(Date.now()).slice(-5)}`,
-      room: room.trim(),
+    if (!category || !fault || !stay) return;
+    const now = Date.now();
+    const next: Ticket = {
+      id: `HJ-${String(now).slice(-5)}`,
+      bookingCode: stay.code,
+      room: String(stay.roomNumber),
       fault,
       category: category.name,
       priority,
       phone: phone.trim(),
       description: description.trim(),
       mayEnter,
-    });
+      status: "new",
+      createdAt: now,
+    };
+    saveHotel(addTicket(getHotel(), next));
+    setTicket(next);
   }
 
   return (
@@ -215,7 +222,19 @@ export function FelanmalanSection() {
       </div>
 
       <div className="drift-panel">
-        {ticket ? (
+        {!stay && !ticket ? (
+          <div className="drift-locked">
+            <Lock className="drift-done-icon" aria-hidden="true" />
+            <h3>Felanmälan för gäster</h3>
+            <p>
+              Logga in med din bokningskod, så vet vi vilket rum det gäller. Brådskande? Ring
+              receptionen — de svarar dygnet runt.
+            </p>
+            <Button className="drift-submit" onClick={onLogin}>
+              <LogIn aria-hidden="true" /> Logga in med bokning
+            </Button>
+          </div>
+        ) : ticket ? (
           <div className="drift-done" role="status">
             <CircleCheck className="drift-done-icon" aria-hidden="true" />
             <h3>Felanmälan skickad</h3>
@@ -294,22 +313,12 @@ export function FelanmalanSection() {
                 <h3 className="drift-step">
                   <span>3</span> Var och hur bråttom?
                 </h3>
-                <label className="drift-field">
-                  <span>Rumsnummer</span>
-                  <input
-                    value={room}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="t.ex. 214"
-                    required
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? `${ids}-error` : undefined}
-                    onChange={(e) => {
-                      setRoom(e.target.value);
-                      setError("");
-                    }}
-                  />
-                </label>
+                <p className="drift-room">
+                  <KeyRound aria-hidden="true" />
+                  <span>
+                    Gäller <strong>rum {stay?.roomNumber}</strong> (från din bokning)
+                  </span>
+                </p>
                 <label className="drift-field">
                   <span>
                     Telefon <small>(valfritt)</small>
@@ -364,11 +373,6 @@ export function FelanmalanSection() {
             <Button type="submit" className="drift-submit" disabled={!fault}>
               <Send aria-hidden="true" /> Skicka felanmälan
             </Button>
-            {error && (
-              <p id={`${ids}-error`} className="drift-error" role="alert">
-                {error}
-              </p>
-            )}
           </form>
         )}
       </div>

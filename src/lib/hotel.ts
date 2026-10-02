@@ -55,9 +55,52 @@ export type Booking = {
   wifiCode?: string;
 };
 
-export type HotelState = { bookings: Booking[]; activeCode: string | null };
+export type TicketPriority = "later" | "today" | "asap";
 
-export const emptyHotel: HotelState = { bookings: [], activeCode: null };
+export type TicketStatus = "new" | "in-progress" | "done";
+
+export type Ticket = {
+  id: string;
+  bookingCode?: string;
+  room: string;
+  fault: string;
+  category: string;
+  priority: TicketPriority;
+  phone: string;
+  description: string;
+  mayEnter: boolean;
+  status: TicketStatus;
+  createdAt: number;
+};
+
+export type HotelState = {
+  bookings: Booking[];
+  activeCode: string | null;
+  tickets: Ticket[];
+  // Påhittade gäster som receptionen har checkat in, som "rum|ankomstdatum".
+  staffCheckins: string[];
+  // Omdömen som gäster har lämnat i appen. De påhittade tidigare omdömena ligger i reviews.ts.
+  reviews: Review[];
+};
+
+export type Review = {
+  id: string;
+  // Kopplar omdömet till en vistelse så att varje bokning bara kan betygsätta en gång. Visas aldrig.
+  bookingCode?: string;
+  rating: number;
+  name: string;
+  comment: string;
+  date: string;
+  room?: number;
+};
+
+export const emptyHotel: HotelState = {
+  bookings: [],
+  activeCode: null,
+  tickets: [],
+  staffCheckins: [],
+  reviews: [],
+};
 
 const roomTypes: Record<RoomType, { beds: number; price: number; feature: string }> = {
   Enkelrum: { beds: 1, price: 1150, feature: "Tyst, mot innergården" },
@@ -131,7 +174,7 @@ export function formatDate(iso: string) {
 
 // --- Påhittade andra gäster: deterministiskt så att samma datum alltid ser likadant ut ---
 
-function hash(text: string) {
+export function hash(text: string) {
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);
@@ -140,7 +183,7 @@ function hash(text: string) {
   return h >>> 0;
 }
 
-function bookedByOthers(roomNumber: number, night: string) {
+export function bookedByOthers(roomNumber: number, night: string) {
   return hash(`${roomNumber}|${night}`) % 100 < 22;
 }
 
@@ -218,8 +261,9 @@ export function createBooking(
   if (!isRoomFree(state, room.number, input.arrival, input.departure))
     return { ok: false, error: `Rum ${room.number} hann bli bokat. Välj ett annat.` };
 
-  let code = `HJ-${digits(random, 4)}`;
-  while (state.bookings.some((b) => b.code === code)) code = `HJ-${digits(random, 4)}`;
+  // Sex siffror: koden är nyckeln till bokningen, så den ska inte gå att gissa i en handvändning.
+  let code = `HJ-${digits(random, 6)}`;
+  while (state.bookings.some((b) => b.code === code)) code = `HJ-${digits(random, 6)}`;
   const booking: Booking = {
     code,
     roomNumber: room.number,
@@ -233,7 +277,11 @@ export function createBooking(
     trips: [],
     meals: [],
   };
-  return { ok: true, booking, state: { bookings: [...state.bookings, booking], activeCode: code } };
+  return {
+    ok: true,
+    booking,
+    state: { ...state, bookings: [...state.bookings, booking], activeCode: code },
+  };
 }
 
 function update(state: HotelState, code: string, change: (b: Booking) => Booking): HotelState {
@@ -249,8 +297,41 @@ export function findBooking(state: HotelState, code: string | null) {
   return state.bookings.find((b) => b.code === normalized);
 }
 
+// --- Gästinloggning: bokningskod + namnet på bokningen ---
+
+const normalizeName = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+
+export function bookingMatchesName(booking: Booking, name: string) {
+  const given = normalizeName(name);
+  const full = normalizeName(booking.guestName);
+  return given.length >= 2 && (given === full || given === full.split(" ")[0]);
+}
+
+export function signInWithBooking(
+  state: HotelState,
+  code: string,
+  name: string,
+): { ok: true; state: HotelState; booking: Booking } | { ok: false; error: string } {
+  const booking = findBooking(state, code);
+  // Samma svar oavsett om koden eller namnet är fel, så att koder inte kan provas fram.
+  if (!booking || !bookingMatchesName(booking, name)) {
+    return { ok: false, error: "Hittar ingen bokning med den koden och det namnet." };
+  }
+  return { ok: true, booking, state: { ...state, activeCode: booking.code } };
+}
+
+export function signOutGuest(state: HotelState): HotelState {
+  return { ...state, activeCode: null };
+}
+
+// Bastu, mat, taxi och felanmälan kräver en bokning som inte är utcheckad.
+export function hasActiveStay(booking: Booking | undefined): booking is Booking {
+  return Boolean(booking && booking.status !== "checked-out");
+}
+
 export function cancelBooking(state: HotelState, code: string): HotelState {
   return {
+    ...state,
     bookings: state.bookings.filter((b) => b.code !== code),
     activeCode: state.activeCode === code ? null : state.activeCode,
   };
@@ -489,4 +570,14 @@ export function stayTotal(booking: Booking) {
   const food = booking.meals.reduce((sum, m) => sum + m.price, 0);
   const taxi = booking.trips.reduce((sum, t) => sum + t.price, 0);
   return { room: roomCost, food, taxi, total: roomCost + food + taxi };
+}
+
+// --- Felanmälningar: gästen skickar, receptionen följer upp ---
+
+export function addTicket(state: HotelState, ticket: Ticket): HotelState {
+  return { ...state, tickets: [ticket, ...state.tickets] };
+}
+
+export function setTicketStatus(state: HotelState, id: string, status: TicketStatus): HotelState {
+  return { ...state, tickets: state.tickets.map((t) => (t.id === id ? { ...t, status } : t)) };
 }

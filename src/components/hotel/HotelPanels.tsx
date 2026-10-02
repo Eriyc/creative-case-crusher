@@ -9,17 +9,24 @@ import {
   Coffee,
   Eye,
   EyeOff,
+  Cat,
+  Clock,
   KeyRound,
+  Lock,
+  LogIn,
   LogOut,
   Minus,
   Moon,
   Plus,
   Search,
+  ShieldCheck,
   Sparkles,
+  Star,
   Thermometer,
   UtensilsCrossed,
   Wifi,
   Wind,
+  Wrench,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -64,12 +71,13 @@ import {
   type Booking,
   type MealPlace,
 } from "@/lib/hotel";
-import { getHotel, saveHotel, useHotel } from "@/lib/hotel-store";
+import { getHotel, guestSignIn, guestSignOut, saveHotel, useHotel } from "@/lib/hotel-store";
+import { type HotelPanel, type NavTarget } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-export type HotelPanel = "book" | "stay" | "sauna" | "aurora" | "taxi" | "food";
+export type { HotelPanel, NavTarget };
 
-type PanelProps = { onBack: () => void; onNavigate: (panel: HotelPanel) => void };
+type PanelProps = { onBack: () => void; onNavigate: (target: NavTarget) => void };
 
 const kr = (amount: number) => `${amount.toLocaleString("sv-SE")} kr`;
 const firstName = (name: string) => name.split(" ")[0];
@@ -188,61 +196,270 @@ function NeedsRoom({
       <h2>{title}</h2>
       <p className="hildur-copy">{text}</p>
       <div className="action-row">
-        <Button onClick={() => onNavigate("book")}>
-          <BedDouble className="size-4" /> Boka rum först
+        <Button onClick={() => onNavigate("login")}>
+          <LogIn className="size-4" /> Logga in med bokning
         </Button>
-        <Button variant="glass" onClick={() => onNavigate("stay")}>
-          Jag har redan ett rum
+        <Button variant="glass" onClick={() => onNavigate("book")}>
+          <BedDouble className="size-4" /> Boka rum
         </Button>
       </div>
     </div>
   );
 }
 
-// --- Bokningsportalen: fem stora, tydliga val ---
+// --- Bokningsportalen: stora, tydliga val. Besökare ser info, gäster ser sina tjänster. ---
 
-const portal: { panel: HotelPanel; icon: LucideIcon; title: string; text: string }[] = [
-  { panel: "book", icon: BedDouble, title: "Boka rum", text: "Välj ett av våra 38 rum" },
-  { panel: "sauna", icon: Zap, title: "Boka bastu", text: "Välj timme och hur många ni är" },
-  { panel: "aurora", icon: Sparkles, title: "Norrsken", text: "Chansen i kväll och vädret" },
-  { panel: "taxi", icon: CarTaxiFront, title: "Boka taxi", text: "Till flyget, byn eller Tärnaby" },
-  { panel: "food", icon: UtensilsCrossed, title: "Boka mat", text: "Frukost, lunch och middag" },
+type PortalItem = { target: NavTarget; icon: LucideIcon; title: string; text: string };
+
+const visitorPortal: PortalItem[] = [
+  { target: "book", icon: BedDouble, title: "Boka rum", text: "Välj ett av våra 38 rum" },
+  {
+    target: "login",
+    icon: LogIn,
+    title: "Jag har en bokning",
+    text: "Logga in med din bokningskod",
+  },
+  {
+    target: "about",
+    icon: Cat,
+    title: "Om hotellet och Kjell",
+    text: "Rum, tider och vår hotellkatt",
+  },
+  { target: "reviews", icon: Star, title: "Omdömen", text: "Vad tidigare gäster tyckte" },
 ];
 
-export function PortalMenu({
-  stay,
+const guestPortal: PortalItem[] = [
+  { target: "sauna", icon: Zap, title: "Boka bastu", text: "Välj timme och hur många ni är" },
+  { target: "aurora", icon: Sparkles, title: "Norrsken", text: "Chansen i kväll och väckning" },
+  {
+    target: "taxi",
+    icon: CarTaxiFront,
+    title: "Boka taxi",
+    text: "Till flyget, byn eller Tärnaby",
+  },
+  { target: "food", icon: UtensilsCrossed, title: "Boka mat", text: "Frukost, lunch och middag" },
+  { target: "report", icon: Wrench, title: "Felanmälan", text: "Något på rummet som krånglar?" },
+];
+
+const lockedPreview: { target: NavTarget; label: string }[] = [
+  { target: "sauna", label: "Bastu" },
+  { target: "food", label: "Mat" },
+  { target: "taxi", label: "Taxi" },
+  { target: "aurora", label: "Norrskenslarm" },
+  { target: "report", label: "Felanmälan" },
+];
+
+function PortalButton({
+  item,
   onNavigate,
 }: {
-  stay: Booking | undefined;
-  onNavigate: (panel: HotelPanel) => void;
+  item: PortalItem;
+  onNavigate: (target: NavTarget) => void;
 }) {
+  const Icon = item.icon;
+  return (
+    <button type="button" className="portal-item" onClick={() => onNavigate(item.target)}>
+      <span className="portal-icon" aria-hidden="true">
+        <Icon />
+      </span>
+      <span>
+        <strong>{item.title}</strong>
+        <small>{item.text}</small>
+      </span>
+      <ChevronRight className="portal-arrow" aria-hidden="true" />
+    </button>
+  );
+}
+
+export function PortalMenu({
+  booking,
+  onNavigate,
+}: {
+  booking: Booking | undefined;
+  onNavigate: (target: NavTarget) => void;
+}) {
+  if (!booking) {
+    return (
+      <>
+        <nav className="portal" aria-label="Vad vill du göra?">
+          {visitorPortal.map((item) => (
+            <PortalButton key={item.target} item={item} onNavigate={onNavigate} />
+          ))}
+        </nav>
+        <div className="locked-preview">
+          <p>
+            <Lock aria-hidden="true" /> Med en bokning kan du också boka:
+          </p>
+          <ul>
+            {lockedPreview.map(({ target, label }) => (
+              <li key={target}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(target)}
+                  aria-label={`${label} – kräver bokning`}
+                >
+                  <Lock aria-hidden="true" /> {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </>
+    );
+  }
+  const room: PortalItem = {
+    target: "stay",
+    icon: KeyRound,
+    title: "Mitt rum",
+    text:
+      booking.status === "checked-out"
+        ? "Se kvittot från din vistelse"
+        : `Rum ${booking.roomNumber} · ${booking.status === "checked-in" ? "se dörrkoden" : "checka in här"}`,
+  };
+  const items =
+    booking.status === "checked-out" ? [room, visitorPortal[3]!] : [room, ...guestPortal];
   return (
     <nav className="portal" aria-label="Vad vill du göra?">
-      {portal.map(({ panel, icon: Icon, title, text }) => {
-        const mine = panel === "book" && stay;
-        return (
-          <button
-            key={panel}
-            type="button"
-            className="portal-item"
-            onClick={() => onNavigate(mine ? "stay" : panel)}
-          >
-            <span className="portal-icon" aria-hidden="true">
-              {mine ? <KeyRound /> : <Icon />}
-            </span>
-            <span>
-              <strong>{mine ? "Mitt rum" : title}</strong>
-              <small>
-                {mine
-                  ? `Rum ${stay.roomNumber} · ${stay.status === "checked-in" ? "se dörrkoden" : "checka in här"}`
-                  : text}
-              </small>
-            </span>
-            <ChevronRight className="portal-arrow" aria-hidden="true" />
-          </button>
-        );
-      })}
+      {items.map((item) => (
+        <PortalButton key={item.target} item={item} onNavigate={onNavigate} />
+      ))}
     </nav>
+  );
+}
+
+// --- Logga in med bokningskod + namn ---
+
+const loginReasons: Partial<Record<NavTarget, string>> = {
+  sauna: "Bastun bokas på ditt rum.",
+  aurora: "Norrskenslarmet går till ditt rum.",
+  taxi: "Taxin bokas på ditt rum.",
+  food: "Maten bokas på ditt rum.",
+  report: "Felanmälan kopplas till ditt rum.",
+  stay: "Ditt rum och dina koder finns här.",
+  reviews: "Bara gäster som bott här kan betygsätta.",
+};
+
+export function LoginPanel({
+  onBack,
+  onNavigate,
+  next,
+}: PanelProps & { next?: NavTarget | undefined }) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const reason = next ? loginReasons[next] : undefined;
+
+  return (
+    <div className="panel-content">
+      <BackButton onClick={onBack} />
+      <p className="panel-kicker">LOGGA IN</p>
+      <h2>Har du bokat?</h2>
+      <p className="hildur-copy">
+        {reason ? `${reason} ` : ""}Skriv din bokningskod och namnet på bokningen.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const result = guestSignIn(code, name);
+          if (!result.ok) return setError(result.error);
+          onNavigate(next ?? "stay");
+        }}
+      >
+        <label className="field">
+          <span>Bokningskod</span>
+          <input
+            value={code}
+            placeholder="HJ-123456"
+            autoComplete="off"
+            autoCapitalize="characters"
+            onChange={(e) => {
+              setCode(e.target.value);
+              setError("");
+            }}
+          />
+        </label>
+        <label className="field">
+          <span>Namn på bokningen (förnamn räcker)</span>
+          <input
+            value={name}
+            autoComplete="off"
+            onChange={(e) => {
+              setName(e.target.value);
+              setError("");
+            }}
+          />
+        </label>
+        <InlineError>{error}</InlineError>
+        <Button type="submit" className="wide-button" disabled={!code.trim() || !name.trim()}>
+          <LogIn className="size-4" /> Logga in
+        </Button>
+      </form>
+      <p className="panel-note">
+        Har du inte bokat?{" "}
+        <button type="button" className="text-button" onClick={() => onNavigate("book")}>
+          Boka ett rum
+        </button>
+      </p>
+      <p className="panel-note">
+        Koden finns i din bokningsbekräftelse. Glömt den? Fråga receptionen.
+      </p>
+    </div>
+  );
+}
+
+// --- Om hotellet och Kjell: öppet för alla ---
+
+export function AboutPanel({ onBack, onNavigate }: PanelProps) {
+  return (
+    <div className="panel-content">
+      <BackButton onClick={onBack} />
+      <p className="panel-kicker">OM HOTELLET</p>
+      <h2>Hotell Hjortronet</h2>
+      <p className="hildur-copy">
+        Ett familjehotell i Hemavan sedan 1948, med fjället precis utanför fönstret.
+      </p>
+      <ul className="stay-info about-list">
+        <li>
+          <BedDouble className="size-4" /> 38 rum på tre våningar, från enkelrum till
+          Norrskenssviten
+        </li>
+        <li>
+          <Clock className="size-4" /> Incheckning från 15.00 · utcheckning senast 11.00
+        </li>
+        <li>
+          <Coffee className="size-4" /> Frukost 07.00–10.00 i matsalen
+        </li>
+        <li>
+          <Zap className="size-4" /> Vedeldad bastu för åtta personer åt gången
+        </li>
+        <li>
+          <Sparkles className="size-4" /> Norrsken syns ofta över fjället från november till mars
+        </li>
+      </ul>
+
+      <div className="about-kjell">
+        <Cat aria-hidden="true" />
+        <div>
+          <h3>Kjell, hotellets katt</h3>
+          <p>
+            Rödvit, nio år och tidigare admin i gamla Hildur. Behörigheten är indragen — i dag
+            serverar han kaffe i receptionen, tar emot klappar och sover gärna på skidjackor.
+          </p>
+          <p className="panel-note">
+            Allergisk? Säg till i receptionen så håller vi Kjell borta från ditt rum.
+          </p>
+        </div>
+      </div>
+
+      <div className="action-row">
+        <Button variant="glass" onClick={() => onNavigate("reviews")}>
+          <Star className="size-4" /> Läs omdömen
+        </Button>
+        <Button variant="glass" onClick={() => onNavigate("cloud")}>
+          <ShieldCheck className="size-4" /> Hur Hildur drivs
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -542,68 +759,12 @@ export function AuroraAlarmSettings({ booking }: { booking: Booking }) {
 // --- Min vistelse: bokad → incheckad → utcheckad ---
 
 export function StayPanel({ onBack, onNavigate }: PanelProps) {
-  const { state, active } = useHotel();
-  const [lookup, setLookup] = useState("");
-  const [error, setError] = useState("");
+  const { active } = useHotel();
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
   const [confirming, setConfirming] = useState<"cancel" | "checkout" | null>(null);
 
-  if (!active) {
-    const others = state.bookings.filter((b) => b.status !== "checked-out");
-    return (
-      <div className="panel-content">
-        <BackButton onClick={onBack} />
-        <p className="panel-kicker">MIN VISTELSE</p>
-        <h2>Ingen vistelse än.</h2>
-        <p className="hildur-copy">Boka ett av våra 38 rum, eller hämta en bokning med din kod.</p>
-        <Button onClick={() => onNavigate("book")}>
-          <BedDouble className="size-4" /> Boka rum
-        </Button>
-        <form
-          className="lookup"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const found = findBooking(state, lookup);
-            if (!found) return setError("Hittar ingen bokning med den koden på den här enheten.");
-            saveHotel({ ...state, activeCode: found.code });
-          }}
-        >
-          <label className="field">
-            <span>Bokningskod</span>
-            <input
-              value={lookup}
-              placeholder="HJ-1234"
-              autoComplete="off"
-              onChange={(e) => {
-                setLookup(e.target.value);
-                setError("");
-              }}
-            />
-          </label>
-          <Button variant="glass" type="submit">
-            Hämta
-          </Button>
-        </form>
-        <InlineError>{error}</InlineError>
-        {others.length > 0 && (
-          <p className="panel-note">
-            Sparade bokningar här:{" "}
-            {others.map((b) => (
-              <button
-                key={b.code}
-                type="button"
-                className="text-button"
-                onClick={() => saveHotel({ ...state, activeCode: b.code })}
-              >
-                {b.code}
-              </button>
-            ))}
-          </p>
-        )}
-      </div>
-    );
-  }
+  if (!active) return <LoginPanel onBack={onBack} onNavigate={onNavigate} next="stay" />;
 
   const room = roomByNumber(active.roomNumber)!;
   const nights = nightsBetween(active.arrival, active.departure);
@@ -639,7 +800,7 @@ export function StayPanel({ onBack, onNavigate }: PanelProps) {
         <div className="action-row">
           <Button
             onClick={() => {
-              saveHotel({ ...state, activeCode: null });
+              guestSignOut();
               onNavigate("book");
             }}
           >
@@ -648,7 +809,7 @@ export function StayPanel({ onBack, onNavigate }: PanelProps) {
           <Button
             variant="glass"
             onClick={() => {
-              saveHotel({ ...state, activeCode: null });
+              guestSignOut();
               onBack();
             }}
           >
@@ -805,7 +966,22 @@ export function StayPanel({ onBack, onNavigate }: PanelProps) {
             Avboka
           </Button>
         )}
+        {!confirming && (
+          <Button
+            variant="glass"
+            onClick={() => {
+              guestSignOut();
+              onBack();
+            }}
+          >
+            <LogOut className="size-4" /> Logga ut
+          </Button>
+        )}
       </div>
+      <p className="panel-note">
+        Logga ut om du lånat någon annans telefon. Du loggar in igen med koden {active.code} och
+        ditt namn.
+      </p>
     </div>
   );
 }

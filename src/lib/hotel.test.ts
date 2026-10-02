@@ -10,12 +10,15 @@ import {
   createBooking,
   emptyHotel,
   findBooking,
+  hasActiveStay,
   isRoomFree,
   orderMeal,
   ROOM_SERVICE_FEE,
   ROOMS,
   SAUNA_CAPACITY,
   saunaSpotsLeft,
+  signInWithBooking,
+  signOutGuest,
   stayTotal,
   validateGuestName,
   type HotelState,
@@ -63,9 +66,9 @@ describe("rummen", () => {
 describe("bokning", () => {
   it("skapar en bokning med kod och gör den aktiv", () => {
     const { state, booking } = book();
-    expect(booking.code).toBe("HJ-4821");
+    expect(booking.code).toBe("HJ-482148");
     expect(state.activeCode).toBe(booking.code);
-    expect(findBooking(state, "hj4821")).toBe(booking);
+    expect(findBooking(state, "hj482148")).toBe(booking);
   });
 
   it("dubbelbokar aldrig samma rum för överlappande nätter", () => {
@@ -103,6 +106,26 @@ describe("bokning", () => {
     expect(isRoomFree(cancelled, booking.roomNumber, booking.arrival, booking.departure)).toBe(
       true,
     );
+  });
+});
+
+describe("gästinloggning", () => {
+  it("kräver rätt kod och namnet på bokningen", () => {
+    const { state, booking } = book();
+    const loggedOut = signOutGuest(state);
+    expect(loggedOut.activeCode).toBeNull();
+    expect(signInWithBooking(loggedOut, booking.code, "Bertil").ok).toBe(false);
+    expect(signInWithBooking(loggedOut, "HJ-000000", "Gunnel").ok).toBe(false);
+    const ok = signInWithBooking(loggedOut, booking.code.toLowerCase(), "gunnel");
+    expect(ok.ok && ok.state.activeCode).toBe(booking.code);
+    expect(signInWithBooking(loggedOut, booking.code, "Gunnel från kören").ok).toBe(true);
+  });
+
+  it("låser bastu, mat och taxi efter utcheckning", () => {
+    const { state, booking } = book();
+    const out = findBooking(checkOut(checkIn(state, booking.code), booking.code), booking.code);
+    expect(hasActiveStay(out)).toBe(false);
+    expect(hasActiveStay(findBooking(state, booking.code))).toBe(true);
   });
 });
 
