@@ -2,26 +2,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BedDouble,
   Cat,
-  Check,
-  ChevronLeft,
   House,
   KeyRound,
-  LockKeyhole,
   LogIn,
   LogOut,
   Wrench,
   ShieldCheck,
   Star,
-  X,
-  Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import receptionImage from "@/assets/hjortronet-reception.jpg";
 import { Button } from "@/components/ui/button";
 import { FelanmalanSection } from "@/components/FelanmalanSection";
-import { HereMap } from "@/components/HereMap";
 import { ReviewsPanel } from "@/components/hotel/ReviewsPanel";
+import { CloudPanel, SecurityPanel } from "@/components/hotel/StrategyPanels";
 import { WaiterKjell } from "@/components/WaiterKjell";
 import { AboutPanel, AuroraPanel, BookingPanel, FoodPanel, LoginPanel, PortalMenu, SaunaPanel, StayPanel, TaxiPanel } from "@/components/hotel/HotelPanels";
 import { GUEST_ONLY, type HotelPanel, type NavTarget } from "@/lib/navigation";
@@ -48,6 +43,40 @@ type Panel = "welcome" | HotelPanel | "security";
 function Reception() {
   const [panel, setPanel] = useState<Panel>("welcome");
   const [loginNext, setLoginNext] = useState<NavTarget | undefined>(undefined);
+  const cardRef = useRef<HTMLElement>(null);
+  const keepScroll = useRef(true);
+
+  // Varje ny vy börjar överst i kortet. På mobil scrollar vi upp till kortet om gästen stod längre ner.
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    if (keepScroll.current) {
+      keepScroll.current = false;
+      return;
+    }
+    card.scrollTop = 0;
+    if (card.getBoundingClientRect().top < 0) {
+      card.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    }
+  }, [panel]);
+
+  // Visar en tonad kant i kortets botten när det finns mer att scrolla till.
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    const update = () => {
+      card.toggleAttribute("data-more", card.scrollHeight - card.scrollTop - card.clientHeight > 8);
+    };
+    update();
+    card.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(card);
+    Array.from(card.children).forEach((child) => observer.observe(child));
+    return () => {
+      card.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [panel]);
   const { active } = useHotel();
   const stay = hasActiveStay(active) ? active : undefined;
 
@@ -60,6 +89,8 @@ function Reception() {
     if (GUEST_ONLY.includes(target) && !allowed) return requireLogin(target);
     if (target === "login") setLoginNext(undefined);
     if (target === "report") {
+      // Felanmälan ligger under scenen: låt scrollningen dit vara kvar.
+      if (panel !== "welcome") keepScroll.current = true;
       setPanel("welcome");
       scrollToDrift();
       return;
@@ -90,18 +121,14 @@ function Reception() {
           <p className="brand-name">Hotell Hjortronet</p>
           <p className="brand-place">Hemavan · sedan 1948</p>
         </div>
-        <div className="status-pill"><span className="status-dot" /> {stay?.status === "checked-in" ? `Incheckad · rum ${stay.roomNumber}` : stay ? `Bokad · rum ${stay.roomNumber}` : active ? "Utcheckad" : "Hildur är vaken"}</div>
+        <div className="status-pill"><span className="status-dot" /> {stay?.status === "checked-in" ? `Incheckad · rum ${stay.roomNumber}` : stay ? `Bokad · rum ${stay.roomNumber}` : active ? "Utcheckad" : "Hildur 4.0 är vaken"}</div>
         {active && <Button variant="glass" size="sm" onClick={signOut}><LogOut className="size-4" /> Logga ut</Button>}
         <Button variant="glass" size="sm" onClick={() => setPanel("security")}><ShieldCheck className="size-4" /> Trygghet</Button>
       </header>
 
       {/* Tre zoner på desktop: Kjell till vänster, bokningen i mitten, fri utsikt till höger. På mobil en kolumn i DOM-ordning. */}
       <div className="scene-layout">
-      <section className="hildur-panel" aria-live="polite">
-        <div className="hildur-heading">
-          <div className="hildur-avatar">H<span className="avatar-dot" /></div>
-          <div><p>HILDUR 4.0</p><span>Digital receptionist · ovanligt pålitlig</span></div>
-        </div>
+      <section ref={cardRef} className="hildur-panel" aria-live="polite">
         {panel === "welcome" ? (
           <>
             <p className="panel-kicker">KJELL HÄLSAR</p>
@@ -119,7 +146,6 @@ function Reception() {
         <WaiterKjell />
       </aside>
 
-      <HereMap />
       </div>
 
       <nav className="scene-nav" aria-label="Receptionens tjänster">
@@ -169,6 +195,6 @@ function PanelContent({ panel, loginNext, onBack, onNavigate, onLogin }: { panel
   if (panel === "taxi") return <TaxiPanel onBack={onBack} onNavigate={onNavigate} />;
   if (panel === "food") return <FoodPanel onBack={onBack} onNavigate={onNavigate} />;
   if (panel === "reviews") return <ReviewsPanel onBack={onBack} onLogin={onLogin} />;
-  if (panel === "security") return <div className="panel-content"><button className="back-button" onClick={onBack}><X className="size-4" /> Stäng</button><p className="panel-kicker">HILDURS TRYGGHETSLÖFTE</p><h2>Dina uppgifter är dina.</h2><ul className="promise-list"><li><LockKeyhole /> Bara det vistelsen behöver sparas.</li><li><Check /> Du godkänner innan något bokas.</li><li><ShieldCheck /> Personal och admin har skilda nycklar.</li><li><X /> Lösenord läses aldrig upp i matsalen.</li></ul><p className="panel-note">Senaste säkerhetskontroll: 08.42 · Kjell saknar behörighet.</p></div>;
-  return <div className="panel-content"><button className="back-button" onClick={onBack}><ChevronLeft className="size-4" /> Tillbaka</button><p className="panel-kicker">FLYTTEN UR BASTUN</p><h2>Hildur bor tryggt i molnet.</h2><div className="cloud-map"><span>Gäst</span><b>→</b><span className="cloud-node">Hildur 4.0<small>Moln + backup</small></span><b>→</b><span>Hotellet</span></div><div className="outage"><Zap /><div><strong>Om strömmen går</strong><p>Gästernas mobiler fungerar vidare. Receptionen har dagens reservlista och allt synkas när elen återvänder.</p></div></div><p className="panel-note">Backup klar 03.00 · 0 bokningar förlorade · Raspberry Pi:n har pensionerats.</p></div>;
+  if (panel === "security") return <SecurityPanel onBack={onBack} />;
+  return <CloudPanel onBack={onBack} />;
 }

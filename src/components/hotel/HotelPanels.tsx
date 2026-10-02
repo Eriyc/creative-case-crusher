@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Cloud,
   CloudMoon,
   Coffee,
   Eye,
@@ -455,8 +456,11 @@ export function AboutPanel({ onBack, onNavigate }: PanelProps) {
         <Button variant="glass" onClick={() => onNavigate("reviews")}>
           <Star className="size-4" /> Läs omdömen
         </Button>
+        <Button variant="glass" onClick={() => onNavigate("security")}>
+          <ShieldCheck className="size-4" /> Vårt trygghetslöfte
+        </Button>
         <Button variant="glass" onClick={() => onNavigate("cloud")}>
-          <ShieldCheck className="size-4" /> Hur Hildur drivs
+          <Cloud className="size-4" /> Hur Hildur drivs
         </Button>
       </div>
     </div>

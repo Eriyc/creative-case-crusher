@@ -1,7 +1,17 @@
 // Vart gästen kan navigera i receptionsscenen, och vad som kräver inloggning med en bokning.
 
 export type HotelPanel =
-  "book" | "stay" | "sauna" | "aurora" | "taxi" | "food" | "login" | "about" | "reviews" | "cloud";
+  | "book"
+  | "stay"
+  | "sauna"
+  | "aurora"
+  | "taxi"
+  | "food"
+  | "login"
+  | "about"
+  | "reviews"
+  | "cloud"
+  | "security";
 
 // "report" är felanmälan, som ligger som egen sektion under scenen.
 export type NavTarget = HotelPanel | "report";
