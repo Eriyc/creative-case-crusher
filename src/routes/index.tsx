@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 
 import receptionImage from "@/assets/hjortronet-reception.jpg";
 import { Button } from "@/components/ui/button";
+import { WaiterKjell } from "@/components/WaiterKjell";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -83,6 +84,8 @@ function Reception() {
       </section>
 
       <div className="scene-landmarks">
+        {panel === "welcome" && <WaiterKjell />}
+
         <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
           <span className="hotspot-ring"><Info className="size-4" /></span>
           <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
