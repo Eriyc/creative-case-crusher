@@ -112,7 +112,7 @@ export function WaiterKjell() {
   const [now, setNow] = useState(() => Date.now());
   const [mood, setMood] = useState<"idle" | "petted" | "eating">("idle");
   const [hearts, setHearts] = useState<Heart[]>([]);
-  const [line, setLine] = useState("Kaffe till välkomsten? Klappa mig gärna.");
+  const [line, setLine] = useState("Meawcome home! Klappa mig gärna.");
   const [shopOpen, setShopOpen] = useState(false);
   const audio = useRef<AudioContext | null>(null);
   const moodTimer = useRef<number | undefined>(undefined);

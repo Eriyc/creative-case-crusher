@@ -1,15 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BedDouble,
   Bell,
   Check,
   ChevronLeft,
-  CloudSun,
+  House,
   Info,
+  KeyRound,
   LockKeyhole,
-  Minus,
-  Plus,
   ShieldCheck,
-  Sparkles,
   X,
   Zap,
 } from "lucide-react";
@@ -18,6 +17,8 @@ import { useEffect, useState } from "react";
 import receptionImage from "@/assets/hjortronet-reception.jpg";
 import { Button } from "@/components/ui/button";
 import { WaiterKjell } from "@/components/WaiterKjell";
+import { AuroraPanel, BookingPanel, FoodPanel, PortalMenu, SaunaPanel, StayPanel, TaxiPanel, type HotelPanel } from "@/components/hotel/HotelPanels";
+import { useHotel } from "@/lib/hotel-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -34,13 +35,12 @@ export const Route = createFileRoute("/")({
   component: Reception,
 });
 
-type Panel = "welcome" | "sauna" | "aurora" | "security" | "cloud";
+type Panel = "welcome" | HotelPanel | "security" | "cloud";
 
 function Reception() {
   const [panel, setPanel] = useState<Panel>("welcome");
-  const [time, setTime] = useState("19.00");
-  const [guests, setGuests] = useState(2);
-  const [booked, setBooked] = useState(false);
+  const { active } = useHotel();
+  const stay = active && active.status !== "checked-out" ? active : undefined;
   const [catLine, setCatLine] = useState("Kjell är utloggad");
 
   useEffect(() => {
@@ -59,7 +59,7 @@ function Reception() {
           <p className="brand-name">Hotell Hjortronet</p>
           <p className="brand-place">Hemavan · sedan 1948</p>
         </div>
-        <div className="status-pill"><span className="status-dot" /> Hildur är vaken</div>
+        <div className="status-pill"><span className="status-dot" /> {stay?.status === "checked-in" ? `Incheckad · rum ${stay.roomNumber}` : stay ? `Bokad · rum ${stay.roomNumber}` : "Hildur är vaken"}</div>
         <Button variant="glass" size="sm" onClick={() => setPanel("security")}><ShieldCheck className="size-4" /> Trygghet</Button>
       </header>
 
@@ -70,23 +70,21 @@ function Reception() {
         </div>
         {panel === "welcome" ? (
           <>
-            <h1>Välkommen in<br />från fjället.</h1>
-            <p className="hildur-copy">Jag är Hildur. Jag hjälper dig med vistelsen — utan rim, hittepå eller fyrtio personer i bastun.</p>
-            <div className="action-row">
-              <Button onClick={() => setPanel("sauna")}><Zap className="size-4" /> Boka bastu</Button>
-              <Button variant="glass" onClick={() => setPanel("aurora")}><Sparkles className="size-4" /> Se norrsken</Button>
-            </div>
-            <p className="microcopy">Jag kan rimma om du ber snällt. Annars håller vi oss till användbar information.</p>
+            <p className="panel-kicker">KJELL HÄLSAR</p>
+            <h1 lang="en">Meawcome Home!</h1>
+            <p className="hildur-copy">{stay ? `Välkommen hem, ${stay.guestName.split(" ")[0]}! Rum ${stay.roomNumber} ${stay.status === "checked-in" ? "är ditt." : "väntar på dig."} Tryck på det du vill göra.` : "Välkommen hem! Jag heter Kjell och är hotellets katt. Tryck på det du vill göra."}</p>
+            <PortalMenu stay={stay} onNavigate={setPanel} />
+            <p className="microcopy">Hildur svarar utan rim. Kjell svarar med mjau.</p>
           </>
         ) : (
-          <PanelContent panel={panel} time={time} setTime={setTime} guests={guests} setGuests={setGuests} booked={booked} setBooked={setBooked} onBack={() => { setPanel("welcome"); setBooked(false); }} />
+          <PanelContent key={panel} panel={panel} onBack={() => setPanel("welcome")} onNavigate={setPanel} />
         )}
       </section>
 
       <div className="scene-landmarks">
         {panel === "welcome" && <WaiterKjell />}
 
-        <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
+        <button className={cn("cat-hotspot", panel !== "welcome" && "is-behind-panel")} type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
           <span className="hotspot-ring"><Info className="size-4" /></span>
           <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
         </button>
@@ -95,27 +93,21 @@ function Reception() {
       </div>
 
       <nav className="scene-nav" aria-label="Receptionens tjänster">
-        <button className={cn(panel === "sauna" && "active")} onClick={() => setPanel("sauna")}><Zap className="size-4" /><span>Bastu</span></button>
-        <button className={cn(panel === "aurora" && "active")} onClick={() => setPanel("aurora")}><CloudSun className="size-4" /><span>Norrsken</span></button>
-        <button className={cn(panel === "cloud" && "active")} onClick={() => setPanel("cloud")}><ShieldCheck className="size-4" /><span>Drift</span></button>
+        <button className={cn(panel === "welcome" && "active")} onClick={() => setPanel("welcome")}><House className="size-4" /><span>Start</span></button>
+        <button className={cn((panel === "stay" || panel === "book") && "active")} onClick={() => setPanel(stay ? "stay" : "book")}><BedDouble className="size-4" /><span>{stay ? "Mitt rum" : "Boka rum"}</span></button>
+        <button className={cn(panel === "cloud" && "active")} onClick={() => setPanel("cloud")}><ShieldCheck className="size-4" /><span>Om Hildur</span></button>
       </nav>
     </main>
   );
 }
 
-function PanelContent({ panel, time, setTime, guests, setGuests, booked, setBooked, onBack }: { panel: Exclude<Panel, "welcome">; time: string; setTime: (v: string) => void; guests: number; setGuests: (v: number) => void; booked: boolean; setBooked: (v: boolean) => void; onBack: () => void }) {
-  if (panel === "sauna") return (
-    <div className="panel-content">
-      <button className="back-button" onClick={onBack}><ChevronLeft className="size-4" /> Tillbaka</button>
-      {booked ? <div className="success-state"><span><Check className="size-6" /></span><h2>Bastun är din.</h2><p>{time}–{time === "18.00" ? "19.00" : time === "19.00" ? "20.00" : "21.00"} för {guests} {guests === 1 ? "person" : "personer"}. Kjell räknas inte.</p><Button variant="glass" onClick={onBack}>Klart</Button></div> : <>
-        <p className="panel-kicker">BASTU · IKVÄLL</p><h2>Välj en varm timme.</h2>
-        <div className="time-grid">{["18.00", "19.00", "20.00"].map((slot) => <button key={slot} className={cn(time === slot && "selected")} onClick={() => setTime(slot)}><strong>{slot}</strong><small>{slot === "20.00" ? "2 platser" : "ledig"}</small></button>)}</div>
-        <div className="guest-stepper"><span>Antal gäster</span><div><button onClick={() => setGuests(Math.max(1, guests - 1))} aria-label="Minska antal"><Minus /></button><strong>{guests}</strong><button onClick={() => setGuests(Math.min(8, guests + 1))} aria-label="Öka antal"><Plus /></button></div></div>
-        <Button onClick={() => setBooked(true)}><Check className="size-4" /> Boka {time} för {guests}</Button>
-      </>}
-    </div>
-  );
-  if (panel === "aurora") return <div className="panel-content"><button className="back-button" onClick={onBack}><ChevronLeft className="size-4" /> Tillbaka</button><p className="panel-kicker">NORRSKENSKOLLEN</p><h2>God chans i kväll.</h2><div className="aurora-score"><strong>82%</strong><span><b>22.00–23.30</b><small>Klart mot norr · KP 5</small></span></div><div className="forecast"><span className="good">22<br /><small>God chans</small></span><span className="maybe">23<br /><small>Möjligt</small></span><span className="poor">00<br /><small>Moln</small></span></div><p className="panel-note">Ta på mössan. För en gångs skull är Hildurs larm befogat.</p></div>;
+function PanelContent({ panel, onBack, onNavigate }: { panel: Exclude<Panel, "welcome">; onBack: () => void; onNavigate: (panel: Panel) => void }) {
+  if (panel === "book") return <BookingPanel onBack={onBack} onNavigate={onNavigate} />;
+  if (panel === "stay") return <StayPanel onBack={onBack} onNavigate={onNavigate} />;
+  if (panel === "sauna") return <SaunaPanel onBack={onBack} onNavigate={onNavigate} />;
+  if (panel === "aurora") return <AuroraPanel onBack={onBack} onNavigate={onNavigate} />;
+  if (panel === "taxi") return <TaxiPanel onBack={onBack} onNavigate={onNavigate} />;
+  if (panel === "food") return <FoodPanel onBack={onBack} onNavigate={onNavigate} />;
   if (panel === "security") return <div className="panel-content"><button className="back-button" onClick={onBack}><X className="size-4" /> Stäng</button><p className="panel-kicker">HILDURS TRYGGHETSLÖFTE</p><h2>Dina uppgifter är dina.</h2><ul className="promise-list"><li><LockKeyhole /> Bara det vistelsen behöver sparas.</li><li><Check /> Du godkänner innan något bokas.</li><li><ShieldCheck /> Personal och admin har skilda nycklar.</li><li><X /> Lösenord läses aldrig upp i matsalen.</li></ul><p className="panel-note">Senaste säkerhetskontroll: 08.42 · Kjell saknar behörighet.</p></div>;
   return <div className="panel-content"><button className="back-button" onClick={onBack}><ChevronLeft className="size-4" /> Tillbaka</button><p className="panel-kicker">FLYTTEN UR BASTUN</p><h2>Hildur bor tryggt i molnet.</h2><div className="cloud-map"><span>Gäst</span><b>→</b><span className="cloud-node">Hildur 4.0<small>Moln + backup</small></span><b>→</b><span>Hotellet</span></div><div className="outage"><Zap /><div><strong>Om strömmen går</strong><p>Gästernas mobiler fungerar vidare. Receptionen har dagens reservlista och allt synkas när elen återvänder.</p></div></div><p className="panel-note">Backup klar 03.00 · 0 bokningar förlorade · Raspberry Pi:n har pensionerats.</p></div>;
 }
