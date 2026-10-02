@@ -82,12 +82,14 @@ function Reception() {
         )}
       </section>
 
-      <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
-        <span className="hotspot-ring"><Info className="size-4" /></span>
-        <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
-      </button>
+      <div className="scene-landmarks">
+        <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
+          <span className="hotspot-ring"><Info className="size-4" /></span>
+          <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
+        </button>
 
-      <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
+        <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
+      </div>
 
       <nav className="scene-nav" aria-label="Receptionens tjänster">
         <button className={cn(panel === "sauna" && "active")} onClick={() => setPanel("sauna")}><Zap className="size-4" /><span>Bastu</span></button>
