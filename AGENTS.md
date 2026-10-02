@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep the guest experience as a single immersive reception scene with overlay panels, because the physical hotel setting is the primary navigation metaphor.
