@@ -82,13 +82,13 @@ function Reception() {
         )}
       </section>
 
-      <div className="scene-landmarks" aria-hidden="true">
-        <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" aria-hidden="false" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
+      <div className="scene-landmarks">
+        <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
           <span className="hotspot-ring"><Info className="size-4" /></span>
           <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
         </button>
 
-        <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" aria-hidden="false" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
+        <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
       </div>
 
       <nav className="scene-nav" aria-label="Receptionens tjänster">
