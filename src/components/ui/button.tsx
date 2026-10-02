@@ -9,12 +9,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         primary: "bg-primary text-primary-foreground hover:bg-primary/90",
         glass: "border border-glass-border bg-glass text-foreground backdrop-blur-md hover:bg-glass-strong",
         quiet: "text-muted-foreground hover:bg-glass hover:text-foreground",
+        destructive: "bg-primary text-primary-foreground hover:bg-primary/90",
+        outline: "border border-border bg-background text-foreground hover:bg-muted",
+        secondary: "bg-muted text-foreground hover:bg-muted/80",
+        ghost: "text-foreground hover:bg-muted",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-11 px-4",
+        lg: "h-12 px-6",
         icon: "size-11 px-0",
         sm: "h-9 px-3 text-xs",
       },
@@ -23,7 +30,7 @@ const buttonVariants = cva(
   },
 );
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & { asChild?: boolean };
 
 function Button({ className, variant, size, asChild, ...props }: ButtonProps) {
