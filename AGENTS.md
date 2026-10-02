@@ -11,6 +11,16 @@
 
 - Keep the guest experience as a single immersive reception scene with overlay panels, because the physical hotel setting is the primary navigation metaphor.
 
+## Commit and push after every turn
+
+When you finish a turn that changed files, commit and push without asking, so Lovable stays in sync with the latest work.
+
+1. Check that the app still builds (`bun run build`). If it fails, fix it or say so — never push a broken branch.
+2. Stage only the files you changed (`git add <paths>`), never `.claude/settings.local.json` or anything with secrets.
+3. Commit with a short message describing the change.
+4. Run `git pull --no-rebase` (teammates and Lovable push to the same branch), then `git push`.
+5. If the pull hits merge conflicts or the push is rejected, stop and tell the user instead of forcing anything.
+
 ## Case context (Chas hackathon brief)
 
 The case slides are in Swedish; this is a summary so agents understand what the app is for.

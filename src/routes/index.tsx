@@ -8,6 +8,7 @@ import {
   Info,
   KeyRound,
   LockKeyhole,
+  Wrench,
   ShieldCheck,
   X,
   Zap,
@@ -16,6 +17,7 @@ import { useEffect, useState } from "react";
 
 import receptionImage from "@/assets/hjortronet-reception.jpg";
 import { Button } from "@/components/ui/button";
+import { FelanmalanSection } from "@/components/FelanmalanSection";
 import { WaiterKjell } from "@/components/WaiterKjell";
 import { AuroraPanel, BookingPanel, FoodPanel, PortalMenu, SaunaPanel, StayPanel, TaxiPanel, type HotelPanel } from "@/components/hotel/HotelPanels";
 import { useHotel } from "@/lib/hotel-store";
@@ -49,7 +51,8 @@ function Reception() {
   }, []);
 
   return (
-    <main className="reception-scene">
+    <main>
+    <div className="reception-scene">
       <img className="scene-image" src={receptionImage} alt="Receptionen på Hotell Hjortronet med snöklädda fjäll utanför och Kjell på disken" width={1920} height={1088} />
       <div className="scene-shade" />
 
@@ -82,12 +85,10 @@ function Reception() {
       </section>
 
       <div className="scene-landmarks">
-        {panel === "welcome" && <WaiterKjell />}
-
-        <button className={cn("cat-hotspot", panel !== "welcome" && "is-behind-panel")} type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
+        {panel === "welcome" ? <WaiterKjell /> : <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
           <span className="hotspot-ring"><Info className="size-4" /></span>
           <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
-        </button>
+        </button>}
 
         <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
       </div>
@@ -95,10 +96,22 @@ function Reception() {
       <nav className="scene-nav" aria-label="Receptionens tjänster">
         <button className={cn(panel === "welcome" && "active")} onClick={() => setPanel("welcome")}><House className="size-4" /><span>Start</span></button>
         <button className={cn((panel === "stay" || panel === "book") && "active")} onClick={() => setPanel(stay ? "stay" : "book")}><BedDouble className="size-4" /><span>{stay ? "Mitt rum" : "Boka rum"}</span></button>
+        <button onClick={scrollToDrift}><Wrench className="size-4" /><span>Drift</span></button>
         <button className={cn(panel === "cloud" && "active")} onClick={() => setPanel("cloud")}><ShieldCheck className="size-4" /><span>Om Hildur</span></button>
       </nav>
+    </div>
+    <FelanmalanSection />
     </main>
   );
+}
+
+// Felanmälan ligger under scenen. Fokus flyttas dit så att tangentbord och skärmläsare följer med.
+function scrollToDrift() {
+  const section = document.getElementById("drift");
+  if (!section) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  section.focus({ preventScroll: true });
 }
 
 function PanelContent({ panel, onBack, onNavigate }: { panel: Exclude<Panel, "welcome">; onBack: () => void; onNavigate: (panel: Panel) => void }) {
