@@ -1,12 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BedDouble,
-  Bell,
   Cat,
   Check,
   ChevronLeft,
   House,
-  Info,
   KeyRound,
   LockKeyhole,
   LogIn,
@@ -17,11 +15,12 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import receptionImage from "@/assets/hjortronet-reception.jpg";
 import { Button } from "@/components/ui/button";
 import { FelanmalanSection } from "@/components/FelanmalanSection";
+import { HereMap } from "@/components/HereMap";
 import { ReviewsPanel } from "@/components/hotel/ReviewsPanel";
 import { WaiterKjell } from "@/components/WaiterKjell";
 import { AboutPanel, AuroraPanel, BookingPanel, FoodPanel, LoginPanel, PortalMenu, SaunaPanel, StayPanel, TaxiPanel } from "@/components/hotel/HotelPanels";
@@ -78,12 +77,6 @@ function Reception() {
     guestSignOut();
     setPanel("welcome");
   }
-  const [catLine, setCatLine] = useState("Kjell är utloggad");
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setCatLine("Kjell är utloggad · och bevakad"), 4200);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   return (
     <main>
@@ -102,7 +95,9 @@ function Reception() {
         <Button variant="glass" size="sm" onClick={() => setPanel("security")}><ShieldCheck className="size-4" /> Trygghet</Button>
       </header>
 
-      <section className={cn("hildur-panel", panel !== "welcome" && "hildur-panel-compact")} aria-live="polite">
+      {/* Tre zoner på desktop: Kjell till vänster, bokningen i mitten, fri utsikt till höger. På mobil en kolumn i DOM-ordning. */}
+      <div className="scene-layout">
+      <section className="hildur-panel" aria-live="polite">
         <div className="hildur-heading">
           <div className="hildur-avatar">H<span className="avatar-dot" /></div>
           <div><p>HILDUR 4.0</p><span>Digital receptionist · ovanligt pålitlig</span></div>
@@ -120,13 +115,11 @@ function Reception() {
         )}
       </section>
 
-      <div className="scene-landmarks">
-        {panel === "welcome" ? <WaiterKjell /> : <button className="cat-hotspot" type="button" aria-label="Prata med Kjell" onClick={() => setCatLine(catLine.includes("bevakad") ? "Mjau. Jag nekar till allt." : "Kjell är utloggad · och bevakad")}>
-          <span className="hotspot-ring"><Info className="size-4" /></span>
-          <span className="cat-label"><strong>Kjell</strong><small>{catLine}</small></span>
-        </button>}
+      <aside className="scene-kjell" aria-label="Kjell, hotellets katt">
+        <WaiterKjell />
+      </aside>
 
-        <button className="bell-hotspot" type="button" aria-label="Ring på receptionens klocka" onClick={() => setPanel("welcome")}><Bell className="size-4" /><span>Ring på Hildur</span></button>
+      <HereMap />
       </div>
 
       <nav className="scene-nav" aria-label="Receptionens tjänster">
